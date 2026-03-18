@@ -4,7 +4,6 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -148,14 +147,6 @@
     <div class="container">
         <h1>☁️ Мое Облако</h1>
         
-        <script>
-            // ⚡ ТВОИ КЛЮЧИ ⚡
-            const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
-            const SUPABASE_KEY = 'sb_publishable_vMhfE_-WtwnFa4jwqhrm6Q_g2WYmv-6';
-            
-            const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        </script>
-
         <div class="tabs">
             <div class="tab active" onclick="showTab('login')">Вход</div>
             <div class="tab" onclick="showTab('register')">Регистрация</div>
@@ -182,7 +173,6 @@
                 <button onclick="logout()" style="width: auto; background: #dc3545;">Выйти</button>
             </div>
             
-            <!-- Прогресс -->
             <div style="margin: 20px 0;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span>Использовано: <span id="usedSpace">0</span> MB</span>
@@ -193,16 +183,15 @@
                 </div>
             </div>
             
-            <!-- Загрузка файлов -->
             <input type="file" id="fileInput" multiple onchange="uploadFiles()">
             
-            <!-- Список файлов -->
             <div id="filesList" class="files"></div>
         </div>
     </div>
 
     <script>
         let currentUser = null;
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
         
         function showTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -217,7 +206,8 @@
             }
         }
 
-        async function register() {
+        function register() {
+            alert('Кнопка работает!');
             let username = document.getElementById('regUser').value;
             let password = document.getElementById('regPass').value;
             
@@ -226,49 +216,42 @@
                 return;
             }
             
-            let { data: existing } = await supabase
-                .from('users')
-                .select('*')
-                .eq('username', username);
+            // Проверяем есть ли пользователь
+            let existing = users.find(u => u.username === username);
             
-            if(existing && existing.length > 0) {
+            if(existing) {
                 alert('Логин уже занят!');
                 return;
             }
             
-            let { data, error } = await supabase
-                .from('users')
-                .insert([
-                    { username: username, password: password, files: [] }
-                ])
-                .select();
+            // Создаем пользователя
+            let user = {
+                id: Date.now(),
+                username: username,
+                password: password,
+                files: []
+            };
             
-            if(error) {
-                alert('Ошибка: ' + error.message);
-                return;
-            }
+            users.push(user);
+            localStorage.setItem('users', JSON.stringify(users));
             
-            currentUser = data[0];
+            currentUser = user;
+            alert('Регистрация успешна!');
             showUserArea();
         }
 
-        async function login() {
+        function login() {
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
-            let { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('username', username)
-                .eq('password', password);
+            currentUser = users.find(u => u.username === username && u.password === password);
             
-            if(error || !data || data.length === 0) {
+            if(currentUser) {
+                alert('Вход выполнен!');
+                showUserArea();
+            } else {
                 alert('Неверный логин или пароль!');
-                return;
             }
-            
-            currentUser = data[0];
-            showUserArea();
         }
 
         function showUserArea() {
@@ -291,7 +274,7 @@
             document.getElementById('loginForm').classList.add('active');
         }
 
-        async function showFiles() {
+        function showFiles() {
             let html = '';
             if(currentUser.files && currentUser.files.length > 0) {
                 currentUser.files.forEach((file, index) => {
@@ -310,14 +293,15 @@
                 html = '<p style="text-align:center; color:#999;">Нет файлов</p>';
             }
             document.getElementById('filesList').innerHTML = html;
+            updateStorage();
         }
 
-        async function uploadFiles() {
+        function uploadFiles() {
             let files = document.getElementById('fileInput').files;
             
             for(let file of files) {
                 let reader = new FileReader();
-                reader.onload = async function(e) {
+                reader.onload = function(e) {
                     if(!currentUser.files) currentUser.files = [];
                     
                     currentUser.files.push({
@@ -327,13 +311,12 @@
                         date: Date.now()
                     });
                     
-                    await supabase
-                        .from('users')
-                        .update({ files: currentUser.files })
-                        .eq('id', currentUser.id);
+                    // Обновляем в массиве users
+                    let index = users.findIndex(u => u.id === currentUser.id);
+                    users[index] = currentUser;
+                    localStorage.setItem('users', JSON.stringify(users));
                     
                     showFiles();
-                    updateStorage();
                 };
                 reader.readAsDataURL(file);
             }
@@ -346,23 +329,23 @@
             a.click();
         }
 
-        async function deleteFile(index) {
+        function deleteFile(index) {
             if(confirm('Удалить файл?')) {
                 currentUser.files.splice(index, 1);
                 
-                await supabase
-                    .from('users')
-                    .update({ files: currentUser.files })
-                    .eq('id', currentUser.id);
+                let userIndex = users.findIndex(u => u.id === currentUser.id);
+                users[userIndex] = currentUser;
+                localStorage.setItem('users', JSON.stringify(users));
                 
                 showFiles();
-                updateStorage();
             }
         }
 
         function updateStorage() {
             let totalSize = 0;
-            currentUser.files.forEach(f => totalSize += (f.size || 0));
+            if(currentUser && currentUser.files) {
+                currentUser.files.forEach(f => totalSize += (f.size || 0));
+            }
             
             let percent = (totalSize / (500 * 1024 * 1024)) * 100;
             document.getElementById('storageFill').style.width = percent + '%';
