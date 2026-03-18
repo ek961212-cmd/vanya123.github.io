@@ -4,7 +4,8 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <!-- ДРУГОЙ СПОСОБ ПОДКЛЮЧЕНИЯ SUPABASE -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -195,8 +196,14 @@
         const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_vMhfE_-WtwnFa4jwqhrm6Q_g2WYmv-6';
         
-        // Правильное создание клиента Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Проверяем, загрузилась ли библиотека
+        console.log('Supabase:', window.supabase);
+        
+        // Создаем клиент
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        console.log('Клиент создан:', supabase);
         
         let currentUser = null;
         
@@ -223,6 +230,8 @@
             }
             
             try {
+                alert('Пробуем зарегистрироваться...');
+                
                 // Проверяем есть ли пользователь
                 let { data: existing, error: checkError } = await supabase
                     .from('users')
@@ -231,6 +240,7 @@
                 
                 if(checkError) {
                     alert('Ошибка проверки: ' + checkError.message);
+                    console.error(checkError);
                     return;
                 }
                 
@@ -253,11 +263,13 @@
                 
                 if(error) {
                     alert('Ошибка создания: ' + error.message);
+                    console.error(error);
                     return;
                 }
                 
                 if(data && data.length > 0) {
                     currentUser = data[0];
+                    alert('Регистрация успешна!');
                     showUserArea();
                 } else {
                     alert('Ошибка: пользователь не создан');
@@ -265,6 +277,7 @@
                 
             } catch(err) {
                 alert('Ошибка: ' + err.message);
+                console.error(err);
             }
         }
 
@@ -290,6 +303,7 @@
                 }
                 
                 currentUser = data[0];
+                alert('Вход выполнен!');
                 showUserArea();
                 
             } catch(err) {
