@@ -4,7 +4,8 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Загружаем Supabase по-другому -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2.0.0/dist/umd/supabase.js"></script>
     <style>
         * {
             margin: 0;
@@ -149,14 +150,19 @@
         <h1>☁️ Мое Облако</h1>
         
         <script>
-            // ⚡ ТВОИ КЛЮЧИ ИЗ SUPABASE ⚡
+            // ⚡ ТВОИ КЛЮЧИ ⚡
             const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZWhwZGd4Y3Rud2tydmhtYXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTk3NTcsImV4cCI6MjA4OTM3NTc1N30.6CUxdi5yEDa8bEyw7JBmvjvEwN5pjC3eZptVsijTSQg';
             
-            // Создаем клиент Supabase
-            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            
-            console.log('Supabase подключен!');
+            // Ждем загрузки Supabase
+            window.addEventListener('load', function() {
+                if(window.supabase) {
+                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log('Supabase загружен!');
+                } else {
+                    console.log('Ошибка загрузки Supabase');
+                }
+            });
         </script>
 
         <div class="tabs">
@@ -204,6 +210,10 @@
     <script>
         let currentUser = null;
         
+        function getSupabase() {
+            return window.supabaseClient;
+        }
+        
         function showTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
@@ -226,6 +236,12 @@
                 return;
             }
             
+            const supabase = getSupabase();
+            if(!supabase) {
+                alert('Ошибка подключения к базе. Обнови страницу!');
+                return;
+            }
+            
             try {
                 // Проверяем есть ли пользователь
                 let { data: existing, error: checkError } = await supabase
@@ -233,10 +249,7 @@
                     .select('*')
                     .eq('username', username);
                 
-                if(checkError) {
-                    alert('Ошибка проверки: ' + checkError.message);
-                    return;
-                }
+                if(checkError) throw checkError;
                 
                 if(existing && existing.length > 0) {
                     alert('Логин уже занят!');
@@ -255,10 +268,7 @@
                     ])
                     .select();
                 
-                if(error) {
-                    alert('Ошибка создания: ' + error.message);
-                    return;
-                }
+                if(error) throw error;
                 
                 if(data && data.length > 0) {
                     currentUser = data[0];
@@ -274,6 +284,12 @@
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
+            const supabase = getSupabase();
+            if(!supabase) {
+                alert('Ошибка подключения к базе. Обнови страницу!');
+                return;
+            }
+            
             try {
                 let { data, error } = await supabase
                     .from('users')
@@ -281,10 +297,7 @@
                     .eq('username', username)
                     .eq('password', password);
                 
-                if(error) {
-                    alert('Ошибка: ' + error.message);
-                    return;
-                }
+                if(error) throw error;
                 
                 if(!data || data.length === 0) {
                     alert('Неверный логин или пароль!');
@@ -321,6 +334,8 @@
 
         async function showFiles() {
             if(!currentUser) return;
+            
+            const supabase = getSupabase();
             
             let { data, error } = await supabase
                 .from('users')
@@ -361,6 +376,8 @@
         async function uploadFiles() {
             let files = document.getElementById('fileInput').files;
             
+            const supabase = getSupabase();
+            
             for(let file of files) {
                 let reader = new FileReader();
                 reader.onload = async function(e) {
@@ -398,6 +415,8 @@
         async function deleteFile(index) {
             if(confirm('Удалить файл?')) {
                 currentUser.files.splice(index, 1);
+                
+                const supabase = getSupabase();
                 
                 let { error } = await supabase
                     .from('users')
