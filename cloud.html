@@ -4,6 +4,7 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -42,17 +43,10 @@
             border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
-        }
-        .tab:hover {
-            background: #e0e0e0;
         }
         .tab.active {
             background: #667eea;
             color: white;
-        }
-        .tab.active:hover {
-            background: #5a67d8;
         }
         .form {
             display: none;
@@ -68,10 +62,6 @@
             border-radius: 10px;
             font-size: 16px;
         }
-        input:focus {
-            border-color: #667eea;
-            outline: none;
-        }
         button {
             width: 100%;
             padding: 15px;
@@ -83,11 +73,9 @@
             font-weight: 600;
             cursor: pointer;
             margin: 10px 0;
-            transition: all 0.3s;
         }
         button:hover {
             background: #5a67d8;
-            transform: translateY(-2px);
         }
         .files {
             margin-top: 30px;
@@ -100,10 +88,6 @@
             background: #f8f9fa;
             border-radius: 10px;
             margin: 10px 0;
-            transition: all 0.3s;
-        }
-        .file-item:hover {
-            background: #e9ecef;
         }
         .file-actions button {
             width: auto;
@@ -153,11 +137,6 @@
             font-weight: 600;
             box-shadow: 0 10px 30px rgba(0,136,204,0.3);
             z-index: 1000;
-            transition: all 0.3s;
-        }
-        .telegram-btn:hover {
-            background: #0077b5;
-            transform: scale(1.05);
         }
     </style>
 </head>
@@ -169,6 +148,17 @@
     <div class="container">
         <h1>☁️ Мое Облако</h1>
         
+        <script>
+            // ⚡ ТВОИ КЛЮЧИ ИЗ SUPABASE ⚡
+            const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZWhwZGd4Y3Rud2tydmhtYXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTk3NTcsImV4cCI6MjA4OTM3NTc1N30.6CUxdi5yEDa8bEyw7JBmvjvEwN5pjC3eZptVsijTSQg';
+            
+            // Создаем клиент Supabase
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            console.log('Supabase подключен!');
+        </script>
+
         <div class="tabs">
             <div class="tab active" onclick="showTab('login')">Вход</div>
             <div class="tab" onclick="showTab('register')">Регистрация</div>
@@ -212,13 +202,6 @@
     </div>
 
     <script>
-        // Загружаем пользователей
-        let users = [];
-        let saved = localStorage.getItem('cloud_users');
-        if(saved) {
-            users = JSON.parse(saved);
-        }
-        
         let currentUser = null;
         
         function showTab(tab) {
@@ -234,7 +217,7 @@
             }
         }
 
-        function register() {
+        async function register() {
             let username = document.getElementById('regUser').value;
             let password = document.getElementById('regPass').value;
             
@@ -243,39 +226,76 @@
                 return;
             }
             
-            // Проверяем есть ли пользователь
-            let existing = users.find(u => u.username === username);
-            
-            if(existing) {
-                alert('Логин уже занят!');
-                return;
+            try {
+                // Проверяем есть ли пользователь
+                let { data: existing, error: checkError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username);
+                
+                if(checkError) {
+                    alert('Ошибка проверки: ' + checkError.message);
+                    return;
+                }
+                
+                if(existing && existing.length > 0) {
+                    alert('Логин уже занят!');
+                    return;
+                }
+                
+                // Создаем пользователя
+                let { data, error } = await supabase
+                    .from('users')
+                    .insert([
+                        { 
+                            username: username, 
+                            password: password, 
+                            files: [] 
+                        }
+                    ])
+                    .select();
+                
+                if(error) {
+                    alert('Ошибка создания: ' + error.message);
+                    return;
+                }
+                
+                if(data && data.length > 0) {
+                    currentUser = data[0];
+                    showUserArea();
+                }
+                
+            } catch(err) {
+                alert('Ошибка: ' + err.message);
             }
-            
-            // Создаем пользователя
-            let user = {
-                id: Date.now(),
-                username: username,
-                password: password,
-                files: []
-            };
-            
-            users.push(user);
-            localStorage.setItem('cloud_users', JSON.stringify(users));
-            
-            currentUser = user;
-            showUserArea();
         }
 
-        function login() {
+        async function login() {
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
-            currentUser = users.find(u => u.username === username && u.password === password);
-            
-            if(currentUser) {
+            try {
+                let { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', password);
+                
+                if(error) {
+                    alert('Ошибка: ' + error.message);
+                    return;
+                }
+                
+                if(!data || data.length === 0) {
+                    alert('Неверный логин или пароль!');
+                    return;
+                }
+                
+                currentUser = data[0];
                 showUserArea();
-            } else {
-                alert('Неверный логин или пароль!');
+                
+            } catch(err) {
+                alert('Ошибка: ' + err.message);
             }
         }
 
@@ -299,7 +319,24 @@
             document.getElementById('loginForm').classList.add('active');
         }
 
-        function showFiles() {
+        async function showFiles() {
+            if(!currentUser) return;
+            
+            let { data, error } = await supabase
+                .from('users')
+                .select('files')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if(error) {
+                console.log('Ошибка загрузки файлов:', error);
+                return;
+            }
+            
+            if(data) {
+                currentUser.files = data.files || [];
+            }
+            
             let html = '';
             if(currentUser.files && currentUser.files.length > 0) {
                 currentUser.files.forEach((file, index) => {
@@ -318,16 +355,15 @@
                 html = '<p style="text-align:center; color:#999;">Нет файлов</p>';
             }
             document.getElementById('filesList').innerHTML = html;
+            updateStorage();
         }
 
-        function uploadFiles() {
+        async function uploadFiles() {
             let files = document.getElementById('fileInput').files;
-            
-            if(files.length === 0) return;
             
             for(let file of files) {
                 let reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = async function(e) {
                     if(!currentUser.files) currentUser.files = [];
                     
                     currentUser.files.push({
@@ -337,13 +373,16 @@
                         date: Date.now()
                     });
                     
-                    // Обновляем в массиве
-                    let index = users.findIndex(u => u.id === currentUser.id);
-                    users[index] = currentUser;
-                    localStorage.setItem('cloud_users', JSON.stringify(users));
+                    let { error } = await supabase
+                        .from('users')
+                        .update({ files: currentUser.files })
+                        .eq('id', currentUser.id);
                     
-                    showFiles();
-                    updateStorage();
+                    if(error) {
+                        alert('Ошибка загрузки: ' + error.message);
+                    } else {
+                        showFiles();
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -356,16 +395,20 @@
             a.click();
         }
 
-        function deleteFile(index) {
+        async function deleteFile(index) {
             if(confirm('Удалить файл?')) {
                 currentUser.files.splice(index, 1);
                 
-                let userIndex = users.findIndex(u => u.id === currentUser.id);
-                users[userIndex] = currentUser;
-                localStorage.setItem('cloud_users', JSON.stringify(users));
+                let { error } = await supabase
+                    .from('users')
+                    .update({ files: currentUser.files })
+                    .eq('id', currentUser.id);
                 
-                showFiles();
-                updateStorage();
+                if(error) {
+                    alert('Ошибка удаления: ' + error.message);
+                } else {
+                    showFiles();
+                }
             }
         }
 
