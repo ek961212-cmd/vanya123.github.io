@@ -4,7 +4,6 @@
     <title>☁️ Быстрое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Загружаем Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
@@ -74,28 +73,9 @@
             font-weight: 600;
             cursor: pointer;
             margin: 10px 0;
-            position: relative;
         }
         button:hover {
             background: #5a67d8;
-        }
-        button:disabled {
-            background: #a0a0a0;
-            cursor: not-allowed;
-        }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-left: 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
         .files {
             margin-top: 30px;
@@ -158,31 +138,18 @@
             box-shadow: 0 10px 30px rgba(0,136,204,0.3);
             z-index: 1000;
         }
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
         }
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
-        }
-        .quick-login {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .quick-login button {
-            flex: 1;
-            padding: 10px;
-            font-size: 14px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -202,11 +169,10 @@
             // Создаем клиент Supabase
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             
-            // Кэш для пользователей
-            let usersCache = {};
+            // Переменные
+            let currentUser = null;
+            let usersCache = {}; // Кэш для быстрого входа
         </script>
-
-        <div id="messageArea"></div>
 
         <div class="tabs">
             <div class="tab active" onclick="showTab('login')">Вход</div>
@@ -216,20 +182,13 @@
         <div id="loginForm" class="form active">
             <input type="text" id="loginUser" placeholder="Логин">
             <input type="password" id="loginPass" placeholder="Пароль">
-            <button id="loginBtn" onclick="login()">🚀 Быстрый вход</button>
-            
-            <!-- Быстрые тестовые аккаунты -->
-            <div class="quick-login">
-                <button onclick="quickLogin('user1', '123')">user1</button>
-                <button onclick="quickLogin('user2', '123')">user2</button>
-                <button onclick="quickLogin('test', '123')">test</button>
-            </div>
+            <button onclick="login()">🚀 Войти</button>
         </div>
 
         <div id="registerForm" class="form">
             <input type="text" id="regUser" placeholder="Логин">
             <input type="password" id="regPass" placeholder="Пароль">
-            <button id="registerBtn" onclick="register()">✨ Быстрая регистрация</button>
+            <button onclick="register()">✨ Зарегистрироваться</button>
         </div>
 
         <div id="userArea" style="display:none;">
@@ -238,13 +197,13 @@
                     <div class="avatar" id="userAvatar"></div>
                     <h2 id="userName"></h2>
                 </div>
-                <button onclick="logout()" style="width: auto; background: #dc3545;">🚪 Выйти</button>
+                <button onclick="logout()" style="width: auto; background: #dc3545;">Выйти</button>
             </div>
             
             <div style="margin: 20px 0;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <span>💾 Использовано: <span id="usedSpace">0</span> MB</span>
-                    <span>📦 Всего: 500 MB</span>
+                    <span>Использовано: <span id="usedSpace">0</span> MB</span>
+                    <span>Всего: 500 MB</span>
                 </div>
                 <div class="storage-bar">
                     <div class="storage-fill" id="storageFill" style="width:0%"></div>
@@ -258,16 +217,6 @@
     </div>
 
     <script>
-        let currentUser = null;
-        
-        function showMessage(text, type) {
-            document.getElementById('messageArea').innerHTML = 
-                `<div class="${type}-message">${text}</div>`;
-            setTimeout(() => {
-                document.getElementById('messageArea').innerHTML = '';
-            }, 3000);
-        }
-        
         function showTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
@@ -281,41 +230,24 @@
             }
         }
 
-        function quickLogin(username, password) {
-            document.getElementById('loginUser').value = username;
-            document.getElementById('loginPass').value = password;
-            login();
-        }
-
         async function register() {
             let username = document.getElementById('regUser').value;
             let password = document.getElementById('regPass').value;
             
             if(!username || !password) {
-                showMessage('❌ Заполни все поля!', 'error');
+                alert('Заполни все поля!');
                 return;
             }
             
-            let btn = document.getElementById('registerBtn');
-            btn.disabled = true;
-            btn.innerHTML = '⏳ Регистрация... <span class="loader"></span>';
-            
             try {
-                // Проверка кэша
-                if(usersCache[username]) {
-                    showMessage('❌ Логин уже занят!', 'error');
-                    return;
-                }
-                
-                // Проверяем в базе
+                // Проверяем есть ли пользователь
                 let { data: existing } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('username', username)
-                    .limit(1);
+                    .eq('username', username);
                 
                 if(existing && existing.length > 0) {
-                    showMessage('❌ Логин уже занят!', 'error');
+                    alert('Логин уже занят!');
                     return;
                 }
                 
@@ -331,14 +263,10 @@
                     currentUser = data[0];
                     usersCache[username] = currentUser;
                     showUserArea();
-                    showMessage('✅ Регистрация успешна!', 'success');
                 }
                 
             } catch(err) {
-                showMessage('❌ Ошибка: ' + err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '✨ Быстрая регистрация';
+                alert('Ошибка: ' + err.message);
             }
         }
 
@@ -346,16 +274,11 @@
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
-            let btn = document.getElementById('loginBtn');
-            btn.disabled = true;
-            btn.innerHTML = '⏳ Вход... <span class="loader"></span>';
-            
             try {
-                // Проверка кэша
+                // Сначала проверяем в кэше
                 if(usersCache[username] && usersCache[username].password === password) {
                     currentUser = usersCache[username];
                     showUserArea();
-                    showMessage('🚀 Быстрый вход!', 'success');
                     return;
                 }
                 
@@ -364,26 +287,21 @@
                     .from('users')
                     .select('*')
                     .eq('username', username)
-                    .eq('password', password)
-                    .limit(1);
+                    .eq('password', password);
                 
                 if(error) throw error;
                 
                 if(!data || data.length === 0) {
-                    showMessage('❌ Неверный логин или пароль!', 'error');
+                    alert('Неверный логин или пароль!');
                     return;
                 }
                 
                 currentUser = data[0];
-                usersCache[username] = currentUser; // Сохраняем в кэш
+                usersCache[username] = currentUser;
                 showUserArea();
-                showMessage('🚀 Добро пожаловать!', 'success');
                 
             } catch(err) {
-                showMessage('❌ Ошибка: ' + err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🚀 Быстрый вход';
+                alert('Ошибка: ' + err.message);
             }
         }
 
@@ -405,7 +323,6 @@
             document.querySelector('.tabs').style.display = 'flex';
             document.getElementById('userArea').style.display = 'none';
             document.getElementById('loginForm').classList.add('active');
-            showMessage('👋 До свидания!', 'success');
         }
 
         async function showFiles() {
@@ -436,7 +353,7 @@
                     `;
                 });
             } else {
-                html = '<p style="text-align:center; color:#999;">📁 Нет файлов</p>';
+                html = '<p style="text-align:center; color:#999;">Нет файлов</p>';
             }
             document.getElementById('filesList').innerHTML = html;
             updateStorage();
@@ -466,7 +383,6 @@
                 };
                 reader.readAsDataURL(file);
             }
-            showMessage('✅ Файлы загружены!', 'success');
         }
 
         function downloadFile(index) {
@@ -486,7 +402,6 @@
                     .eq('id', currentUser.id);
                 
                 showFiles();
-                showMessage('🗑️ Файл удален', 'success');
             }
         }
 
