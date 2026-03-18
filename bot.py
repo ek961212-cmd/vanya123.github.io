@@ -5,22 +5,17 @@ import random
 import string
 import hashlib
 import time
-import socks
-import socket
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, ConversationHandler
 import logging
 
 # ========== ТВОЙ ТОКЕН ==========
 BOT_TOKEN = "8745261570:AAGG2UHvob2bE86hTh7DRBhAKQ1Piq-YbbU"
-ADMIN_IDS = ["6579391458", "8745261570"]  # Твой ID
+ADMIN_IDS = ["6579391458", "8745261570"]  # Твой ID добавлен!
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 МБ
+MAX_STORAGE_PER_USER = 500 * 1024 * 1024  # 500 МБ
 # ================================
-
-# ========== НАСТРОЙКИ TOR ==========
-USE_TOR = True  # Включить Tor
-TOR_HOST = "127.0.0.1"  # localhost
-TOR_PORT = 9050  # Порт Tor (обычно 9050 или 9150)
-# ===================================
 
 # Состояния
 LOGIN, PASSWORD, REG_LOGIN, REG_PASSWORD = range(4)
@@ -31,24 +26,6 @@ ACCOUNTS_FILE = 'accounts.json'
 
 # Отключаем логи
 logging.basicConfig(level=logging.CRITICAL)
-
-# ========== НАСТРОЙКА TOR ==========
-if USE_TOR:
-    try:
-        # Устанавливаем прокси для всех socket соединений
-        socks.set_default_proxy(socks.SOCKS5, TOR_HOST, TOR_PORT)
-        socket.socket = socks.socksocket
-        print(f"✅ Tor подключен: {TOR_HOST}:{TOR_PORT}")
-        
-        # Проверяем подключение
-        import requests
-        test_ip = requests.get('http://httpbin.org/ip', timeout=10).json()['origin']
-        print(f"🌐 Ваш IP через Tor: {test_ip}")
-    except Exception as e:
-        print(f"❌ Ошибка Tor: {e}")
-        print("⚠️ Запускаю без Tor...")
-        USE_TOR = False
-# ===================================
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -64,9 +41,9 @@ def load_accounts():
 
 def save_all(users, accs):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False)
+        json.dump(users, f, ensure_ascii=False, indent=2)
     with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(accs, f, ensure_ascii=False)
+        json.dump(accs, f, ensure_ascii=False, indent=2)
 
 users_data = load_data()
 accounts = load_accounts()
@@ -80,7 +57,8 @@ def gen_id():
 def format_size(size):
     if size < 1024: return f"{size}B"
     elif size < 1024*1024: return f"{size/1024:.1f}KB"
-    else: return f"{size/(1024*1024):.1f}MB"
+    elif size < 1024*1024*1024: return f"{size/(1024*1024):.1f}MB"
+    else: return f"{size/(1024*1024*1024):.1f}GB"
 
 # Клавиатуры
 MAIN_KEYBOARD = InlineKeyboardMarkup([
@@ -112,7 +90,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
     
-    await update.message.reply_text("🚀 Облако", reply_markup=AUTH_KEYBOARD)
+    await update.message.reply_text("🚀 Мега Облако", reply_markup=AUTH_KEYBOARD)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -126,7 +104,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             files = users_data.get(acc['user_id'], {}).get('files', {})
             await q.edit_message_text(f"👋 {acc['username']} | 📁 {len(files)}", reply_markup=MAIN_KEYBOARD)
         else:
-            await q.edit_message_text("🚀 Облако", reply_markup=AUTH_KEYBOARD)
+            await q.edit_message_text("🚀 Мега Облако", reply_markup=AUTH_KEYBOARD)
         return
     
     if data == 'login':
@@ -164,16 +142,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == 'stats':
         files = users_data.get(uid, {}).get('files', {})
         total_size = sum(f.get('bytes', 0) for f in files.values())
-        await q.edit_message_text(
-            f"📊 Статистика\n📁 Файлов: {len(files)}\n💾 Места: {format_size(total_size)}",
-            reply_markup=BACK_KEYBOARD
-        )
+        await q.edit_message_text(f"📊 Файлов: {len(files)}\n💾 Места: {format_size(total_size)}", reply_markup=BACK_KEYBOARD)
     
     elif data == 'account':
-        await q.edit_message_text(
-            f"👤 Аккаунт\n📝 {acc['username']}\n🆔 {acc['user_id'][:6]}",
-            reply_markup=BACK_KEYBOARD
-        )
+        await q.edit_message_text(f"👤 {acc['username']}\n🆔 {acc['user_id'][:6]}", reply_markup=BACK_KEYBOARD)
     
     elif data == 'logout':
         context.user_data.pop('current_account', None)
@@ -298,49 +270,62 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {name}")
 
 def main():
+    """Запуск бота"""
     print("="*50)
-    print("🚀 МЕГА-БОТ С TOR")
+    print("🚀 МЕГА БОТ ЗАПУЩЕН!")
     print("="*50)
     print(f"👑 Твой ID: 6579391458")
-    print(f"🔒 Tor: {'ВКЛЮЧЕН' if USE_TOR else 'ВЫКЛЮЧЕН'}")
-    if USE_TOR:
-        print(f"🌐 Порт Tor: {TOR_PORT}")
+    print(f"👥 Пользователей: {len(accounts)}")
+    print(f"📁 Всего файлов: {sum(len(u.get('files', {})) for u in users_data.values())}")
+    print("="*50)
+    print("❌ Нажми Ctrl+C для остановки")
     print("="*50)
     
-    app = Application.builder().token(BOT_TOKEN).build()
-    
-    login_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern='^login$')],
-        states={
-            LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
-            PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
-        },
-        fallbacks=[CommandHandler("start", start)],
-    )
-    
-    register_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_handler, pattern='^register$')],
-        states={
-            REG_LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
-            REG_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
-        },
-        fallbacks=[CommandHandler("start", start)],
-    )
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(login_conv)
-    app.add_handler(register_conv)
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
-    
-    app.run_polling()
+    try:
+        # Создаем приложение
+        app = Application.builder().token(BOT_TOKEN).build()
+        
+        # Conversation handlers
+        login_conv = ConversationHandler(
+            entry_points=[CallbackQueryHandler(button_handler, pattern='^login$')],
+            states={
+                LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
+                PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
+            },
+            fallbacks=[CommandHandler("start", start)],
+        )
+        
+        register_conv = ConversationHandler(
+            entry_points=[CallbackQueryHandler(button_handler, pattern='^register$')],
+            states={
+                REG_LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
+                REG_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
+            },
+            fallbacks=[CommandHandler("start", start)],
+        )
+        
+        # Добавляем обработчики
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(login_conv)
+        app.add_handler(register_conv)
+        app.add_handler(CallbackQueryHandler(button_handler))
+        app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
+        
+        # Запускаем бота
+        app.run_polling()
+        
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
+        print("🔄 Перезапуск через 5 секунд...")
+        time.sleep(5)
+        main()
 
 if __name__ == '__main__':
-    # Устанавливаем библиотеку для Tor
     try:
-        import socks
-    except ImportError:
-        os.system("pip install PySocks")
-        import socks
-    
-    main()
+        main()
+    except KeyboardInterrupt:
+        print("\n👋 Бот остановлен")
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
+        time.sleep(5)
+        main()
