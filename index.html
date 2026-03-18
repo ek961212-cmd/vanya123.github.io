@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>☁️ Облако для всех</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Шапка */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        /* Статистика */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Основной блок */
+        .cloud-box {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: #f0f2f5;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Формы */
+        .form {
+            display: none;
+        }
+
+        .form.active {
+            display: block;
+        }
+
+        .form input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        .form button {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .form button:hover {
+            background: #5a67d8;
+        }
+
+        /* Хранилище */
+        .storage {
+            display: none;
+        }
+
+        .storage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #f0f2f5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .upload-area {
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background: #edf2f7;
+        }
+
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-actions button {
+            padding: 5px 15px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .download-btn {
+            background: #48bb78;
+            color: white;
+        }
+
+        .delete-btn {
+            background: #f56565;
+            color: white;
+        }
+
+        .share-link {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>☁️ Моё Облако</h1>
+            <p>Бесплатное хранилище для всех! Регистрируйся и загружай файлы</p>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number" id="totalUsers">0</div>
+                <div class="stat-label">Пользователей</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="totalFiles">0</div>
+                <div class="stat-label">Файлов</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="totalSize">0 MB</div>
+                <div class="stat-label">Всего данных</div>
+            </div>
+        </div>
+
+        <div class="cloud-box">
+            <!-- Вкладки -->
+            <div class="tabs" id="tabs">
+                <div class="tab active" onclick="switchTab('login')">Вход</div>
+                <div class="tab" onclick="switchTab('register')">Регистрация</div>
+            </div>
+
+            <!-- Форма входа -->
+            <div id="loginForm" class="form active">
+                <h2>Вход</h2>
+                <input type="text" id="loginUsername" placeholder="Логин">
+                <input type="password" id="loginPassword" placeholder="Пароль">
+                <button onclick="login()">Войти</button>
+            </div>
+
+            <!-- Форма регистрации -->
+            <div id="registerForm" class="form">
+                <h2>Регистрация</h2>
+                <input type="text" id="regUsername" placeholder="Придумай логин">
+                <input type="password" id="regPassword" placeholder="Придумай пароль">
+                <button onclick="register()">Зарегистрироваться</button>
+            </div>
+
+            <!-- Хранилище -->
+            <div id="storage" class="storage">
+                <div class="storage-header">
+                    <div class="user-info">
+                        <div class="avatar" id="userAvatar"></div>
+                        <div>
+                            <h3 id="userName"></h3>
+                            <small>твоё личное пространство</small>
+                        </div>
+                    </div>
+                    <button class="logout-btn" onclick="logout()">Выйти</button>
+                </div>
+
+                <!-- Ссылка для друга -->
+                <div class="share-link">
+                    <strong>🔗 Твоя ссылка:</strong><br>
+                    <span id="userLink"></span><br>
+                    <button onclick="copyLink()" style="margin-top:10px">Копировать ссылку</button>
+                </div>
+
+                <!-- Загрузка файла -->
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" style="display:none" onchange="uploadFile()">
+                    <p>📁 Нажми чтобы выбрать файл</p>
+                    <small>или перетащи его сюда</small>
+                </div>
+
+                <!-- Список файлов -->
+                <div id="fileList" class="file-list">
+                    <p style="text-align:center; color:#999;">У тебя пока нет файлов</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>👥 Сейчас онлайн: <span id="onlineCount">0</span></p>
+        </div>
+    </div>
+
+    <script>
+        // ============== ДАННЫЕ ==============
+        let users = JSON.parse(localStorage.getItem('cloud_users') || '[]');
+        let currentUser = null;
+
+        // ============== СТАТИСТИКА ==============
+        function updateStats() {
+            let totalUsers = users.length;
+            let totalFiles = 0;
+            let totalSize = 0;
+            
+            users.forEach(user => {
+                totalFiles += (user.files || []).length;
+                (user.files || []).forEach(f => totalSize += (f.size || 0));
+            });
+            
+            document.getElementById('totalUsers').innerText = totalUsers;
+            document.getElementById('totalFiles').innerText = totalFiles;
+            document.getElementById('totalSize').innerText = (totalSize / (1024*1024)).toFixed(1);
+            
+            // Счетчик онлайн
+            let online = localStorage.getItem('online') || 0;
+            document.getElementById('onlineCount').innerText = online;
+        }
+
+        // ============== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==============
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
+            
+            if(tab === 'login') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+            }
+        }
+
+        // ============== РЕГИСТРАЦИЯ ==============
+        function register() {
+            let username = document.getElementById('regUsername').value;
+            let password = document.getElementById('regPassword').value;
+            
+            if(!username || !password) {
+                alert('Введи логин и пароль!');
+                return;
+            }
+            
+            if(users.find(u => u.username === username)) {
+                alert('Такой логин уже есть!');
+                return;
+            }
+            
+            let user = {
+                id: Date.now(),
+                username: username,
+                password: password,
+                files: []
+            };
+            
+            users.push(user);
+            localStorage.setItem('cloud_users', JSON.stringify(users));
+            
+            currentUser = user;
+            showStorage();
+            updateStats();
+            
+            // Увеличиваем счетчик онлайн
+            let online = parseInt(localStorage.getItem('online') || '0');
+            online++;
+            localStorage.setItem('online', online);
+        }
+
+        // ============== ВХОД ==============
+        function login() {
+            let username = document.getElementById('loginUsername').value;
+            let password = document.getElementById('loginPassword').value;
+            
+            currentUser = users.find(u => u.username === username && u.password === password);
+            
+            if(currentUser) {
+                showStorage();
+                updateStats();
+                
+                // Увеличиваем счетчик онлайн
+                let online = parseInt(localStorage.getItem('online') || '0');
+                online++;
+                localStorage.setItem('online', online);
+            } else {
+                alert('Неверный логин или пароль!');
+            }
+        }
+
+        // ============== ХРАНИЛИЩЕ ==============
+        function showStorage() {
+            document.getElementById('tabs').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('storage').style.display = 'block';
+            
+            document.getElementById('userName').innerText = currentUser.username;
+            document.getElementById('userAvatar').innerText = currentUser.username[0].toUpperCase();
+            
+            // Ссылка
+            let url = window.location.href.split('?')[0];
+            document.getElementById('userLink').innerText = url + '?user=' + currentUser.id;
+            
+            showFiles();
+        }
+
+        function logout() {
+            // Уменьшаем счетчик онлайн
+            let online = parseInt(localStorage.getItem('online') || '0');
+            online = Math.max(0, online - 1);
+            localStorage.setItem('online', online);
+            
+            currentUser = null;
+            document.getElementById('tabs').style.display = 'flex';
+            document.getElementById('storage').style.display = 'none';
+            switchTab('login');
+        }
+
+        function showFiles() {
+            let html = '';
+            if(currentUser.files && currentUser.files.length > 0) {
+                currentUser.files.forEach((file, index) => {
+                    html += `
+                        <div class="file-item">
+                            <div class="file-info">
+                                <span>📄 ${file.name}</span>
+                                <small>(${(file.size/1024).toFixed(1)} KB)</small>
+                            </div>
+                            <div class="file-actions">
+                                <button class="download-btn" onclick="downloadFile(${index})">📥</button>
+                                <button class="delete-btn" onclick="deleteFile(${index})">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html = '<p style="text-align:center; color:#999;">У тебя пока нет файлов</p>';
+            }
+            document.getElementById('fileList').innerHTML = html;
+        }
+
+        function uploadFile() {
+            let file = document.getElementById('fileInput').files[0];
+            if(!file) return;
+            
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                if(!currentUser.files) currentUser.files = [];
+                
+                currentUser.files.push({
+                    name: file.name,
+                    size: file.size,
+                    data: e.target.result
+                });
+                
+                // Обновляем в общем списке
+                let index = users.findIndex(u => u.id === currentUser.id);
+                users[index] = currentUser;
+                localStorage.setItem('cloud_users', JSON.stringify(users));
+                
+                showFiles();
+                updateStats();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function downloadFile(index) {
+            let a = document.createElement('a');
+            a.href = currentUser.files[index].data;
+            a.download = currentUser.files[index].name;
+            a.click();
+        }
+
+        function deleteFile(index) {
+            if(confirm('Удалить файл?')) {
+                currentUser.files.splice(index, 1);
+                
+                let userIndex = users.findIndex(u => u.id === currentUser.id);
+                users[userIndex] = currentUser;
+                localStorage.setItem('cloud_users', JSON.stringify(users));
+                
+                showFiles();
+                updateStats();
+            }
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(document.getElementById('userLink').innerText);
+            alert('Ссылка скопирована!');
+        }
+
+        // ============== ПРОВЕРКА ПО ССЫЛКЕ ==============
+        let urlParams = new URLSearchParams(window.location.search);
+        let userId = urlParams.get('user');
+        if(userId) {
+            currentUser = users.find(u => u.id == userId);
+            if(currentUser) {
+                showStorage();
+            }
+        }
+
+        // Запускаем статистику
+        updateStats();
+    </script>
+</body>
+</html>
