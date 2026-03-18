@@ -5,9 +5,10 @@ import random
 import string
 import hashlib
 import time
+import socks
+import socket
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, ConversationHandler
-from telegram.request import HTTPXRequest
 import logging
 
 # ========== ТВОЙ ТОКЕН ==========
@@ -15,10 +16,11 @@ BOT_TOKEN = "8745261570:AAGG2UHvob2bE86hTh7DRBhAKQ1Piq-YbbU"
 ADMIN_IDS = ["6579391458", "8745261570"]  # Твой ID
 # ================================
 
-# ========== ТВОЙ ПРОКСИ ==========
-USE_PROXY = True
-PROXY_URL = "socks5://qq.aezailoveyou.ru:443"  # SOCKS5 прокси
-# ================================
+# ========== НАСТРОЙКИ TOR ==========
+USE_TOR = True  # Включить Tor
+TOR_HOST = "127.0.0.1"  # localhost
+TOR_PORT = 9050  # Порт Tor (обычно 9050 или 9150)
+# ===================================
 
 # Состояния
 LOGIN, PASSWORD, REG_LOGIN, REG_PASSWORD = range(4)
@@ -29,6 +31,24 @@ ACCOUNTS_FILE = 'accounts.json'
 
 # Отключаем логи
 logging.basicConfig(level=logging.CRITICAL)
+
+# ========== НАСТРОЙКА TOR ==========
+if USE_TOR:
+    try:
+        # Устанавливаем прокси для всех socket соединений
+        socks.set_default_proxy(socks.SOCKS5, TOR_HOST, TOR_PORT)
+        socket.socket = socks.socksocket
+        print(f"✅ Tor подключен: {TOR_HOST}:{TOR_PORT}")
+        
+        # Проверяем подключение
+        import requests
+        test_ip = requests.get('http://httpbin.org/ip', timeout=10).json()['origin']
+        print(f"🌐 Ваш IP через Tor: {test_ip}")
+    except Exception as e:
+        print(f"❌ Ошибка Tor: {e}")
+        print("⚠️ Запускаю без Tor...")
+        USE_TOR = False
+# ===================================
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -278,24 +298,16 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {name}")
 
 def main():
-    # Создаем request с прокси
-    if USE_PROXY:
-        try:
-            request = HTTPXRequest(
-                proxy_url=PROXY_URL,
-                connection_pool_size=8,
-                connect_timeout=30,
-                read_timeout=30
-            )
-            app = Application.builder().token(BOT_TOKEN).request(request).build()
-            print(f"🌐 Прокси включен: {PROXY_URL}")
-        except Exception as e:
-            print(f"❌ Ошибка прокси: {e}")
-            print("🚀 Запускаю без прокси...")
-            app = Application.builder().token(BOT_TOKEN).build()
-    else:
-        app = Application.builder().token(BOT_TOKEN).build()
-        print("🌐 Прокси выключен")
+    print("="*50)
+    print("🚀 МЕГА-БОТ С TOR")
+    print("="*50)
+    print(f"👑 Твой ID: 6579391458")
+    print(f"🔒 Tor: {'ВКЛЮЧЕН' if USE_TOR else 'ВЫКЛЮЧЕН'}")
+    if USE_TOR:
+        print(f"🌐 Порт Tor: {TOR_PORT}")
+    print("="*50)
+    
+    app = Application.builder().token(BOT_TOKEN).build()
     
     login_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_handler, pattern='^login$')],
@@ -321,22 +333,14 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
     
-    print("="*50)
-    print("🚀 МЕГА-БОТ ЗАПУЩЕН!")
-    print("="*50)
-    print(f"👑 Твой ID: 6579391458")
-    print(f"👥 Пользователей: {len(accounts)}")
-    print(f"📁 Всего файлов: {sum(len(u.get('files', {})) for u in users_data.values())}")
-    print(f"🌐 Прокси: {'ВКЛЮЧЕН' if USE_PROXY else 'ВЫКЛЮЧЕН'}")
-    print("="*50)
-    
     app.run_polling()
 
 if __name__ == '__main__':
-    # Устанавливаем библиотеку для прокси
+    # Устанавливаем библиотеку для Tor
     try:
         import socks
-    except:
+    except ImportError:
         os.system("pip install PySocks")
+        import socks
     
     main()
