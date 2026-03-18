@@ -5,16 +5,14 @@ import random
 import string
 import hashlib
 import time
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, ConversationHandler
 import logging
+import sys
 
 # ========== ТВОЙ ТОКЕН ==========
 BOT_TOKEN = "8745261570:AAGG2UHvob2bE86hTh7DRBhAKQ1Piq-YbbU"
-ADMIN_IDS = ["6579391458", "8745261570"]  # Твой ID добавлен!
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 МБ
-MAX_STORAGE_PER_USER = 500 * 1024 * 1024  # 500 МБ
+ADMIN_IDS = ["6579391458", "8745261570"]
 # ================================
 
 # Состояния
@@ -41,9 +39,9 @@ def load_accounts():
 
 def save_all(users, accs):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+        json.dump(users, f, ensure_ascii=False)
     with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(accs, f, ensure_ascii=False, indent=2)
+        json.dump(accs, f, ensure_ascii=False)
 
 users_data = load_data()
 accounts = load_accounts()
@@ -57,8 +55,7 @@ def gen_id():
 def format_size(size):
     if size < 1024: return f"{size}B"
     elif size < 1024*1024: return f"{size/1024:.1f}KB"
-    elif size < 1024*1024*1024: return f"{size/(1024*1024):.1f}MB"
-    else: return f"{size/(1024*1024*1024):.1f}GB"
+    else: return f"{size/(1024*1024):.1f}MB"
 
 # Клавиатуры
 MAIN_KEYBOARD = InlineKeyboardMarkup([
@@ -281,51 +278,63 @@ def main():
     print("❌ Нажми Ctrl+C для остановки")
     print("="*50)
     
-    try:
-        # Создаем приложение
-        app = Application.builder().token(BOT_TOKEN).build()
-        
-        # Conversation handlers
-        login_conv = ConversationHandler(
-            entry_points=[CallbackQueryHandler(button_handler, pattern='^login$')],
-            states={
-                LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
-                PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
-            },
-            fallbacks=[CommandHandler("start", start)],
-        )
-        
-        register_conv = ConversationHandler(
-            entry_points=[CallbackQueryHandler(button_handler, pattern='^register$')],
-            states={
-                REG_LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
-                REG_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
-            },
-            fallbacks=[CommandHandler("start", start)],
-        )
-        
-        # Добавляем обработчики
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(login_conv)
-        app.add_handler(register_conv)
-        app.add_handler(CallbackQueryHandler(button_handler))
-        app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
-        
-        # Запускаем бота
-        app.run_polling()
-        
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
-        print("🔄 Перезапуск через 5 секунд...")
-        time.sleep(5)
-        main()
+    max_retries = 5
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Создаем приложение
+            app = Application.builder().token(BOT_TOKEN).build()
+            
+            # Conversation handlers
+            login_conv = ConversationHandler(
+                entry_points=[CallbackQueryHandler(button_handler, pattern='^login$')],
+                states={
+                    LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
+                    PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login)],
+                },
+                fallbacks=[CommandHandler("start", start)],
+            )
+            
+            register_conv = ConversationHandler(
+                entry_points=[CallbackQueryHandler(button_handler, pattern='^register$')],
+                states={
+                    REG_LOGIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
+                    REG_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register)],
+                },
+                fallbacks=[CommandHandler("start", start)],
+            )
+            
+            # Добавляем обработчики
+            app.add_handler(CommandHandler("start", start))
+            app.add_handler(login_conv)
+            app.add_handler(register_conv)
+            app.add_handler(CallbackQueryHandler(button_handler))
+            app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
+            
+            # Запускаем бота
+            app.run_polling()
+            break  # Если дошли сюда - бот работает
+            
+        except Exception as e:
+            retry_count += 1
+            print(f"❌ Ошибка: {e}")
+            print(f"🔄 Попытка {retry_count} из {max_retries}...")
+            
+            if retry_count >= max_retries:
+                print("❌ Превышено количество попыток. Перезапусти бота позже.")
+                return
+            
+            print(f"⏳ Ожидание 10 секунд...")
+            time.sleep(10)
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n👋 Бот остановлен")
+        print("\n👋 Бот остановлен пользователем")
     except Exception as e:
         print(f"❌ Критическая ошибка: {e}")
-        time.sleep(5)
+        print("🔄 Перезапуск через 10 секунд...")
+        time.sleep(10)
         main()
