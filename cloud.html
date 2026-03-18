@@ -4,8 +4,8 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Загружаем Supabase по-другому -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2.0.0/dist/umd/supabase.js"></script>
+    <!-- Загружаем Supabase через CDN правильно -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -139,6 +139,14 @@
             box-shadow: 0 10px 30px rgba(0,136,204,0.3);
             z-index: 1000;
         }
+        .timeout-error {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -149,20 +157,29 @@
     <div class="container">
         <h1>☁️ Мое Облако</h1>
         
+        <!-- Сообщение об ошибке таймаута -->
+        <div id="timeoutMessage" class="timeout-error" style="display:none;">
+            ⏳ Сервер долго отвечает. Пожалуйста, подожди и попробуй еще раз.
+        </div>
+        
         <script>
             // ⚡ ТВОИ КЛЮЧИ ⚡
             const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZWhwZGd4Y3Rud2tydmhtYXJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTk3NTcsImV4cCI6MjA4OTM3NTc1N30.6CUxdi5yEDa8bEyw7JBmvjvEwN5pjC3eZptVsijTSQg';
             
-            // Ждем загрузки Supabase
-            window.addEventListener('load', function() {
-                if(window.supabase) {
-                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                    console.log('Supabase загружен!');
-                } else {
-                    console.log('Ошибка загрузки Supabase');
+            // Создаем клиент Supabase с увеличенным таймаутом
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                },
+                global: {
+                    fetch: (...args) => fetch(...args)
                 }
             });
+            
+            console.log('Supabase версия:', window.supabase);
+            console.log('Клиент создан:', supabase);
         </script>
 
         <div class="tabs">
@@ -210,10 +227,6 @@
     <script>
         let currentUser = null;
         
-        function getSupabase() {
-            return window.supabaseClient;
-        }
-        
         function showTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
@@ -236,20 +249,25 @@
                 return;
             }
             
-            const supabase = getSupabase();
-            if(!supabase) {
-                alert('Ошибка подключения к базе. Обнови страницу!');
-                return;
-            }
+            // Показываем сообщение о загрузке
+            alert('Подожди, идет регистрация...');
             
             try {
                 // Проверяем есть ли пользователь
                 let { data: existing, error: checkError } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('username', username);
+                    .eq('username', username)
+                    .timeout(10000); // Увеличиваем таймаут
                 
-                if(checkError) throw checkError;
+                if(checkError) {
+                    if(checkError.message.includes('timeout')) {
+                        document.getElementById('timeoutMessage').style.display = 'block';
+                        return;
+                    }
+                    alert('Ошибка проверки: ' + checkError.message);
+                    return;
+                }
                 
                 if(existing && existing.length > 0) {
                     alert('Логин уже занят!');
@@ -266,9 +284,17 @@
                             files: [] 
                         }
                     ])
-                    .select();
+                    .select()
+                    .timeout(10000);
                 
-                if(error) throw error;
+                if(error) {
+                    if(error.message.includes('timeout')) {
+                        document.getElementById('timeoutMessage').style.display = 'block';
+                        return;
+                    }
+                    alert('Ошибка создания: ' + error.message);
+                    return;
+                }
                 
                 if(data && data.length > 0) {
                     currentUser = data[0];
@@ -284,20 +310,24 @@
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
-            const supabase = getSupabase();
-            if(!supabase) {
-                alert('Ошибка подключения к базе. Обнови страницу!');
-                return;
-            }
+            alert('Подожди, идет вход...');
             
             try {
                 let { data, error } = await supabase
                     .from('users')
                     .select('*')
                     .eq('username', username)
-                    .eq('password', password);
+                    .eq('password', password)
+                    .timeout(10000);
                 
-                if(error) throw error;
+                if(error) {
+                    if(error.message.includes('timeout')) {
+                        document.getElementById('timeoutMessage').style.display = 'block';
+                        return;
+                    }
+                    alert('Ошибка: ' + error.message);
+                    return;
+                }
                 
                 if(!data || data.length === 0) {
                     alert('Неверный логин или пароль!');
@@ -335,16 +365,17 @@
         async function showFiles() {
             if(!currentUser) return;
             
-            const supabase = getSupabase();
-            
             let { data, error } = await supabase
                 .from('users')
                 .select('files')
                 .eq('id', currentUser.id)
-                .single();
+                .single()
+                .timeout(10000);
             
             if(error) {
-                console.log('Ошибка загрузки файлов:', error);
+                if(error.message.includes('timeout')) {
+                    document.getElementById('timeoutMessage').style.display = 'block';
+                }
                 return;
             }
             
@@ -376,8 +407,6 @@
         async function uploadFiles() {
             let files = document.getElementById('fileInput').files;
             
-            const supabase = getSupabase();
-            
             for(let file of files) {
                 let reader = new FileReader();
                 reader.onload = async function(e) {
@@ -393,10 +422,15 @@
                     let { error } = await supabase
                         .from('users')
                         .update({ files: currentUser.files })
-                        .eq('id', currentUser.id);
+                        .eq('id', currentUser.id)
+                        .timeout(10000);
                     
                     if(error) {
-                        alert('Ошибка загрузки: ' + error.message);
+                        if(error.message.includes('timeout')) {
+                            document.getElementById('timeoutMessage').style.display = 'block';
+                        } else {
+                            alert('Ошибка загрузки: ' + error.message);
+                        }
                     } else {
                         showFiles();
                     }
@@ -416,15 +450,18 @@
             if(confirm('Удалить файл?')) {
                 currentUser.files.splice(index, 1);
                 
-                const supabase = getSupabase();
-                
                 let { error } = await supabase
                     .from('users')
                     .update({ files: currentUser.files })
-                    .eq('id', currentUser.id);
+                    .eq('id', currentUser.id)
+                    .timeout(10000);
                 
                 if(error) {
-                    alert('Ошибка удаления: ' + error.message);
+                    if(error.message.includes('timeout')) {
+                        document.getElementById('timeoutMessage').style.display = 'block';
+                    } else {
+                        alert('Ошибка удаления: ' + error.message);
+                    }
                 } else {
                     showFiles();
                 }
