@@ -4,7 +4,7 @@
     <title>☁️ Мое Облако</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -148,14 +148,6 @@
     <div class="container">
         <h1>☁️ Мое Облако</h1>
         
-        <script>
-            // ⚡ ТВОИ КЛЮЧИ ⚡
-            const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
-            const SUPABASE_KEY = 'sb_publishable_vMhfE_-WtwnFa4jwqhrm6Q_g2WYmv-6';
-            
-            const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        </script>
-
         <div class="tabs">
             <div class="tab active" onclick="showTab('login')">Вход</div>
             <div class="tab" onclick="showTab('register')">Регистрация</div>
@@ -199,6 +191,13 @@
     </div>
 
     <script>
+        // ⚡ ТВОИ КЛЮЧИ ⚡
+        const SUPABASE_URL = 'https://rlehpdgxctnwkrvhmars.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_vMhfE_-WtwnFa4jwqhrm6Q_g2WYmv-6';
+        
+        // Правильное создание клиента Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
         let currentUser = null;
         
         function showTab(tab) {
@@ -231,7 +230,7 @@
                     .eq('username', username);
                 
                 if(checkError) {
-                    alert('Ошибка: ' + checkError.message);
+                    alert('Ошибка проверки: ' + checkError.message);
                     return;
                 }
                 
@@ -253,13 +252,16 @@
                     .select();
                 
                 if(error) {
-                    alert('Ошибка: ' + error.message);
+                    alert('Ошибка создания: ' + error.message);
                     return;
                 }
                 
-                currentUser = data[0];
-                showUserArea();
-                alert('Регистрация успешна!');
+                if(data && data.length > 0) {
+                    currentUser = data[0];
+                    showUserArea();
+                } else {
+                    alert('Ошибка: пользователь не создан');
+                }
                 
             } catch(err) {
                 alert('Ошибка: ' + err.message);
@@ -289,7 +291,6 @@
                 
                 currentUser = data[0];
                 showUserArea();
-                alert('Вход выполнен!');
                 
             } catch(err) {
                 alert('Ошибка: ' + err.message);
@@ -317,11 +318,18 @@
         }
 
         async function showFiles() {
+            if(!currentUser) return;
+            
             let { data, error } = await supabase
                 .from('users')
                 .select('files')
                 .eq('id', currentUser.id)
                 .single();
+            
+            if(error) {
+                console.log('Ошибка загрузки файлов:', error);
+                return;
+            }
             
             if(data) {
                 currentUser.files = data.files || [];
