@@ -182,7 +182,6 @@
                 <button onclick="logout()" style="width: auto; background: #dc3545;">Выйти</button>
             </div>
             
-            <!-- Прогресс -->
             <div style="margin: 20px 0;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span>Использовано: <span id="usedSpace">0</span> MB</span>
@@ -193,10 +192,8 @@
                 </div>
             </div>
             
-            <!-- Загрузка файлов -->
             <input type="file" id="fileInput" multiple onchange="uploadFiles()">
             
-            <!-- Список файлов -->
             <div id="filesList" class="files"></div>
         </div>
     </div>
@@ -226,49 +223,77 @@
                 return;
             }
             
-            let { data: existing } = await supabase
-                .from('users')
-                .select('*')
-                .eq('username', username);
-            
-            if(existing && existing.length > 0) {
-                alert('Логин уже занят!');
-                return;
+            try {
+                // Проверяем есть ли пользователь
+                let { data: existing, error: checkError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username);
+                
+                if(checkError) {
+                    alert('Ошибка: ' + checkError.message);
+                    return;
+                }
+                
+                if(existing && existing.length > 0) {
+                    alert('Логин уже занят!');
+                    return;
+                }
+                
+                // Создаем пользователя
+                let { data, error } = await supabase
+                    .from('users')
+                    .insert([
+                        { 
+                            username: username, 
+                            password: password, 
+                            files: [] 
+                        }
+                    ])
+                    .select();
+                
+                if(error) {
+                    alert('Ошибка: ' + error.message);
+                    return;
+                }
+                
+                currentUser = data[0];
+                showUserArea();
+                alert('Регистрация успешна!');
+                
+            } catch(err) {
+                alert('Ошибка: ' + err.message);
             }
-            
-            let { data, error } = await supabase
-                .from('users')
-                .insert([
-                    { username: username, password: password, files: [] }
-                ])
-                .select();
-            
-            if(error) {
-                alert('Ошибка: ' + error.message);
-                return;
-            }
-            
-            currentUser = data[0];
-            showUserArea();
         }
 
         async function login() {
             let username = document.getElementById('loginUser').value;
             let password = document.getElementById('loginPass').value;
             
-            let { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('username', username)
-                .eq('password', password);
-            
-            if(error || !data || data.length === 0) {
-                alert('Неверный логин или пароль!');
-                return;
+            try {
+                let { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', password);
+                
+                if(error) {
+                    alert('Ошибка: ' + error.message);
+                    return;
+                }
+                
+                if(!data || data.length === 0) {
+                    alert('Неверный логин или пароль!');
+                    return;
+                }
+                
+                currentUser = data[0];
+                showUserArea();
+                alert('Вход выполнен!');
+                
+            } catch(err) {
+                alert('Ошибка: ' + err.message);
             }
-            
-            currentUser = data[0];
-            showUserArea();
         }
 
         function showUserArea() {
@@ -292,6 +317,16 @@
         }
 
         async function showFiles() {
+            let { data, error } = await supabase
+                .from('users')
+                .select('files')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if(data) {
+                currentUser.files = data.files || [];
+            }
+            
             let html = '';
             if(currentUser.files && currentUser.files.length > 0) {
                 currentUser.files.forEach((file, index) => {
@@ -310,6 +345,7 @@
                 html = '<p style="text-align:center; color:#999;">Нет файлов</p>';
             }
             document.getElementById('filesList').innerHTML = html;
+            updateStorage();
         }
 
         async function uploadFiles() {
@@ -327,13 +363,16 @@
                         date: Date.now()
                     });
                     
-                    await supabase
+                    let { error } = await supabase
                         .from('users')
                         .update({ files: currentUser.files })
                         .eq('id', currentUser.id);
                     
-                    showFiles();
-                    updateStorage();
+                    if(error) {
+                        alert('Ошибка загрузки: ' + error.message);
+                    } else {
+                        showFiles();
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -350,19 +389,24 @@
             if(confirm('Удалить файл?')) {
                 currentUser.files.splice(index, 1);
                 
-                await supabase
+                let { error } = await supabase
                     .from('users')
                     .update({ files: currentUser.files })
                     .eq('id', currentUser.id);
                 
-                showFiles();
-                updateStorage();
+                if(error) {
+                    alert('Ошибка удаления: ' + error.message);
+                } else {
+                    showFiles();
+                }
             }
         }
 
         function updateStorage() {
             let totalSize = 0;
-            currentUser.files.forEach(f => totalSize += (f.size || 0));
+            if(currentUser && currentUser.files) {
+                currentUser.files.forEach(f => totalSize += (f.size || 0));
+            }
             
             let percent = (totalSize / (500 * 1024 * 1024)) * 100;
             document.getElementById('storageFill').style.width = percent + '%';
